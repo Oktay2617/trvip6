@@ -1,47 +1,41 @@
-name: Vavoo Links
+name: Run Vavoo Scraper
 
 on:
-  schedule:
-    - cron: '*/5 * * * *' # Her 5 dakikada bir çalıştırır
-  workflow_dispatch:
+  push:
+    branches: [ "main" ] # Veya hangi tetikleyiciyi kullanıyorsanız
+  workflow_dispatch: # Manuel çalıştırma için
 
 jobs:
-  extract:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
-      - name: Checkout repository
+      # 1. Kodu makineye indirir
+      - name: Check out repository
         uses: actions/checkout@v4
 
+      # 2. Python'u kurar
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.10' # İstediğiniz Python sürümü
 
-      - name: Install Python dependencies
+      # 3. Bağımlılıkları yükler (Gerekli Adım)
+      - name: Install dependencies
         run: |
-          pip install playwright
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt  # requirements.txt dosyanız olduğunu varsayarak
 
-      - name: Install Playwright browsers
+      # 4. Betiğinizi çalıştırır
+      - name: Run Vavoo Scraper
+        run: python vavoo_scraper.py
+        
+      # 5. (İsteğe bağlı) Oluşan dosyayı commit'ler
+      - name: Commit M3U8 file
         run: |
-          playwright install chromium
-
-      # --- DEĞİŞİKLİK 1: Script adını düzelt ve ilk script'i çalıştır ---
-      - name: Run vavoo_scraper.py to get raw M3U8
-        run: python vavoo_scraper.py # Dosya adını buna göre ayarlayın
-
-      # --- DEĞİŞİKLİK YOK: Commit adımı her iki script'ten sonra ---
-      - name: Commit and Push changes
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git add . # Tüm değişiklikleri ekle (hem _raw.m3u8 hem de son .m3u8)
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            # Commit mesajını güncelleyebiliriz
-            git commit -m "Auto-update cleaned JustinTV m3u8 file"
-            git push
-          fi
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add vavoo_kanallar.m3u8
+          # Sadece değişiklik varsa commit at
+          git diff-index --quiet HEAD || git commit -m "📺 Kanal listesi güncellendi"
+          git push
