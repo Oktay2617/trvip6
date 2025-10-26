@@ -1,41 +1,63 @@
-name: Run Vavoo Scraper
+# Bu workflow'un adı
+name: Vavoo Kanal Listesi Güncelleyici
 
 on:
-  push:
-    branches: [ "main" ] # Veya hangi tetikleyiciyi kullanıyorsanız
-  workflow_dispatch: # Manuel çalıştırma için
+  # Her 30 dakikada bir otomatik çalıştırır
+  # (Sunucuyu yormamak için 5dk yerine 30dk olarak ayarlandı, değiştirebilirsiniz)
+  schedule:
+    - cron: '*/59 * * * *' 
+  
+  # GitHub arayüzünden manuel olarak çalıştırmayı sağlar
+  workflow_dispatch:
 
 jobs:
+  # "build" adında bir job (iş) tanımlıyoruz
   build:
+    # En güncel Ubuntu sanal makinesinde çalışacak
     runs-on: ubuntu-latest
+    
+    # Bu job'un, repository'ye kod yazma (commit atma) izni olduğunu belirtir
+    permissions:
+      contents: write
 
     steps:
-      # 1. Kodu makineye indirir
-      - name: Check out repository
+      # 1. Adım: Repository'deki kodları sanal makineye indirir
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Python'u kurar
+      # 2. Adım: Belirtilen Python sürümünü (3.10) kurar
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.10' # İstediğiniz Python sürümü
+          python-version: '3.10'
 
-      # 3. Bağımlılıkları yükler (Gerekli Adım)
-      - name: Install dependencies
+      # 3. Adım: Gerekli Python kütüphanesini (requests) kurar
+      # Hatanızın çözümü bu adımdır
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt  # requirements.txt dosyanız olduğunu varsayarak
+          pip install requests
 
-      # 4. Betiğinizi çalıştırır
+      # 4. Adım: Vavoo scraper betiğini çalıştırır
       - name: Run Vavoo Scraper
         run: python vavoo_scraper.py
-        
-      # 5. (İsteğe bağlı) Oluşan dosyayı commit'ler
-      - name: Commit M3U8 file
+
+      # 5. Adım: Oluşturulan dosyayı (vavoo_kanallar.m3u8) repository'ye commit'ler ve push'lar
+      - name: Commit and Push changes
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          # Git için bot kimliğini ayarla
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Sadece bizim oluşturduğumuz dosyayı ekle
           git add vavoo_kanallar.m3u8
-          # Sadece değişiklik varsa commit at
-          git diff-index --quiet HEAD || git commit -m "📺 Kanal listesi güncellendi"
-          git push
+          
+          # Değişiklik olup olmadığını kontrol et
+          if git diff --staged --quiet; then
+            echo "Değişiklik bulunamadı, commit atılmıyor."
+          else
+            # Değişiklik varsa commit at ve push'la
+            echo "Değişiklik bulundu, commit atılıyor..."
+            git commit -m "📺 Otomatik Vavoo kanal listesi güncellendi"
+            git push
+          fi
